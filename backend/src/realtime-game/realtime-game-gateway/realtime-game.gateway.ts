@@ -23,7 +23,7 @@ import { IGameRoomManager } from 'src/game-rooms/common/types/game-room-manager.
 import { AuthorizedSocket } from '../interfaces/authorized-socket.interface';
 import { JoinInput } from '../dto/join.input';
 import { GameInputEvent } from '../common/types/game-input-event';
-import { GameRoomOutput } from 'src/game-rooms/dto/game-room.output/game-room.output';
+import { GameRoomOutput } from 'src/game-rooms/dto/game-room.output';
 import { GameOutputEvent } from '../common/types/game-output-event';
 import { ChoiceInput } from '../dto/choice.input';
 import { WsSessionAuthGuard } from 'src/auth/guards/ws-session-auth/ws-session-auth.guard';
@@ -31,13 +31,16 @@ import { IAuthManager } from 'src/auth/common/auth-manager.interface';
 import { WebsocketExceptionsFilter } from '../helpers/websocket-exception-filter';
 import { plainToInstance } from 'class-transformer';
 import { SignInInput } from '../dto/sign-in.input';
+import { GetRoomInput } from '../dto/get-room.input';
 
 @UsePipes(
   new ValidationPipe({
     exceptionFactory: () => new WsException('Bad request.'),
   }),
 )
-@WebSocketGateway()
+@WebSocketGateway({
+  cors: '*',
+})
 @UseFilters(WebsocketExceptionsFilter)
 export class GameRoomsGateway
   implements OnGatewayConnection, OnGatewayDisconnect
@@ -85,15 +88,18 @@ export class GameRoomsGateway
     @ConnectedSocket() client: AuthorizedSocket,
     @MessageBody() body: ChoiceInput,
   ) {
-    const updatedRoom = await this._roomService.makeChoice(
+    const personalizedUpdatedRooms = await this._roomService.makeChoice(
       body.roomId,
       client.handshake.user,
       body.choice,
     );
 
-    this.server
-      .to(updatedRoom.id)
-      .emit(GameOutputEvent.ROOM_UPDATED, updatedRoom);
+    personalizedUpdatedRooms.forEach((personalizedRoom) => {
+      this.getClient(personalizedRoom.session.connectionId).emit(
+        GameOutputEvent.ROOM_UPDATED,
+        personalizedRoom.room,
+      );
+    });
   }
 
   @UseGuards(WsSessionAuthGuard)
@@ -103,17 +109,47 @@ export class GameRoomsGateway
       client.handshake.user,
     );
 
+    client.leave(updatedRoom.id);
+
     this.server
       .to(updatedRoom.id)
       .emit(GameOutputEvent.ROOM_UPDATED, updatedRoom);
   }
 
+  @UseGuards(WsSessionAuthGuard)
+  @SubscribeMessage(GameInputEvent.NEW_GAME)
+  async handleNewGameRequest(
+    @ConnectedSocket() client: AuthorizedSocket,
+  ): Promise<WsResponse<GameRoomOutput>> {
+    const restartedRoom = await this._roomService.startNewRound(
+      client.handshake.user,
+    );
+    return {
+      event: GameOutputEvent.ROOM_UPDATED,
+      data: restartedRoom,
+    };
+  }
+
+  @UseGuards(WsSessionAuthGuard)
+  @SubscribeMessage(GameInputEvent.GET_ROOM)
+  async handleRoomDataRequest(
+    @ConnectedSocket() client: AuthorizedSocket,
+    @MessageBody() body: GetRoomInput,
+  ): Promise<WsResponse<GameRoomOutput>> {
+    const roomData = await this._roomService.getRoomData(
+      body.roomId,
+      client.handshake.user,
+    );
+    return {
+      event: GameOutputEvent.ROOM_DATA,
+      data: roomData,
+    };
+  }
+
   async handleConnection(client: Socket) {
     try {
-      const cridentials = plainToInstance(
-        SignInInput,
-        client.handshake.auth.login,
-      );
+      const cridentials = plainToInstance(SignInInput, client.handshake.auth);
+
       if (!cridentials) throw new BadRequestException('Invalid data');
 
       await this._authManager.signIn({
@@ -138,5 +174,9 @@ export class GameRoomsGateway
     } catch (error) {
       console.error(error);
     }
+  }
+
+  private getClient(id: string): AuthorizedSocket {
+    return this.server.sockets.sockets.get(id) as AuthorizedSocket;
   }
 }

@@ -42,14 +42,16 @@ export class GameRoomArgregate implements IGameRoom {
   }
 
   disconnect(id: SessionId): void {
-    this._players.map((player) => {
+    this._players = this._players.map((player) => {
+      if (!player) return null;
+
       if (player.user.id === id) {
         return null;
       }
       player.score = 0;
       player.state = PlayerState.IN_GAME;
       return player;
-    });
+    }) as [IPlayer, IPlayer];
     this._state = GameRoomState.PENDING;
   }
 
@@ -57,9 +59,13 @@ export class GameRoomArgregate implements IGameRoom {
     const player = this._players.find((player) => player.user.id === playerId);
     player.choice = choice;
     player.state = PlayerState.MADE_MOVE;
-    if (this.satate !== GameRoomState.PLAYING) return;
+    if (this.state !== GameRoomState.PLAYING) return;
     if (this.player1.choice === null || this.player2.choice === null) return;
     this.calculateGameResult();
+  }
+
+  isPlayerInRoom(id: string): boolean {
+    return !!this._players.find((player) => player.user.id === id);
   }
 
   get id(): string {
@@ -77,7 +83,7 @@ export class GameRoomArgregate implements IGameRoom {
   private set player2(player: IPlayer) {
     this._players[1] = player;
   }
-  get satate(): GameRoomState {
+  get state(): GameRoomState {
     return this._state;
   }
   get winner(): IPlayer | null {
@@ -105,7 +111,7 @@ export class GameRoomArgregate implements IGameRoom {
 
   private comparePieces(pieceA: IPiece, pieceB: IPiece): number {
     if (pieceA.value === pieceB.value) return 0;
-    if (pieceA.weakneses.includes(pieceB.value)) return 1;
-    return -1;
+    if (pieceA.weakneses.includes(pieceB.value)) return -1;
+    return 1;
   }
 }

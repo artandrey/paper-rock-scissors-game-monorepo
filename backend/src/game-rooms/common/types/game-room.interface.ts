@@ -8,11 +8,12 @@ export interface IGameRoom {
   readonly id: RoomId;
   readonly player1: IPlayer | null;
   readonly player2: IPlayer | null;
-  readonly satate: GameRoomState;
+  readonly state: GameRoomState;
   readonly winner: IPlayer | null;
 
   join(player: IPlayer): void;
   disconnect(id: SessionId): void;
   setPlayerChoice(playerId: SessionId, choice: PlayerChoiseOption): void;
   startNextRound(): void;
+  isPlayerInRoom(id: SessionId): boolean;
 }

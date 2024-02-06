@@ -1,7 +1,8 @@
-import { GameRoomOutput } from 'src/game-rooms/dto/game-room.output/game-room.output';
+import { GameRoomOutput } from 'src/game-rooms/dto/game-room.output';
 import { RoomId } from './game-room-id';
 import { PlayerChoiseOption } from './player-choise-option';
 import { IUser } from 'src/user-session/common/user.interface';
+import { PersonalizedRoomOutput } from 'src/game-rooms/dto/personalized-room.output';
 
 export interface IGameRoomManager {
   createRoom(creator: IUser): Promise<GameRoomOutput>;
@@ -12,7 +13,8 @@ export interface IGameRoomManager {
     roomId: RoomId,
     user: IUser,
     choice: PlayerChoiseOption,
-  ): Promise<GameRoomOutput>;
+  ): Promise<PersonalizedRoomOutput[]>;
   disconnectUser(user: IUser): Promise<GameRoomOutput>;
-  startNewRound(roomId: RoomId): Promise<GameRoomOutput>;
+  startNewRound(user: IUser): Promise<GameRoomOutput>;
+  getRoomData(roomId: RoomId, user: IUser): Promise<GameRoomOutput>;
 }

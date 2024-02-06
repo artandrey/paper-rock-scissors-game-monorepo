@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { IUserSessionStore } from '../common/user-session-store.interface';
 import { IUserSession } from '../common/user-session.interface';
-import { IUser } from '../common/user.interface';
 import { SessionId } from '../common/session-id';
 
 @Injectable()
@@ -11,8 +10,8 @@ export class UserSessionRepository implements IUserSessionStore {
   async findUserSessionById(id: SessionId): Promise<IUserSession> {
     return this.store.get(id);
   }
-  async saveUserSession(user: IUser): Promise<void> {
-    this.store.set(user.id, user);
+  async saveUserSession(session: IUserSession): Promise<void> {
+    this.store.set(session.id, session);
   }
 
   async deleteUserSession(id: string): Promise<void> {

@@ -28,6 +28,7 @@ export class AuthService implements IAuthManager {
     await this._sessionService.createSession({
       id: userData.connectionId,
       login: userData.login,
+      connectionId: userData.connectionId,
     });
   }
   async signOut(signOutPayload: SignOutInput): Promise<void> {
